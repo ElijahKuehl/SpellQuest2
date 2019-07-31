@@ -3,6 +3,10 @@ from termcolor import colored
 from math import sqrt
 
 
+def raw_input(text):
+    return input(text)
+
+
 class Player(object):
     def __init__(self, name="You", guild="Grey", max_hp=10, spell_list=[]):
         self.name = colored(name.lower().capitalize(), guild.lower())
@@ -15,15 +19,15 @@ class Player(object):
         self.scrambled = self.name.lower().replace('a', '|').replace('e', 'a').replace('i', 'e').replace('o', 'i').replace('u', 'a').replace('|', 'u').capitalize()
 
     def attack(self, enemy):
-        print "What spell slot will you use?"
-        print "Enemy Health: " + str(enemy.hp) + "  Your Health: " + str(self.hp)
-        print self.spell_list
+        print("What spell slot will you use?")
+        print("Enemy Health: " + str(enemy.hp) + "  Your Health: " + str(self.hp))
+        print(self.spell_list)
         while True:
             slot = raw_input("Spell Slot Number: ")
             try:
                 slot = int(slot) - 1
             except ValueError:
-                print "You don't have a spell in that slot!"
+                print("You don't have a spell in that slot!")
             else:
                 break
         spell = self.spell_list[slot]
@@ -31,8 +35,24 @@ class Player(object):
 
         status = spellbook[spell][1]
         if status != "None":
-            enemy.status = status
-            raw_input(enemy.name + " was afflicted with " + status + "!")
+            if "Heal" in status:
+                amount = int(status.split(":")[1])
+                if amount == 0:
+                    self.hp = self.max_hp
+                    print("Their heath is back up to " + str(self.max_hp) + "HP!")
+                else:
+                    origin_hp = self.hp
+                    self.hp += amount
+                    if self.hp > self.max_hp:
+                        self.hp = self.max_hp
+                    print("They regained " + str(self.hp - origin_hp) + " HP!")
+            elif status == "Invisible":
+                print("You became invisible!")
+                self.guild = "Grey"
+                self.status = "Invisible"
+            else:
+                enemy.status = status
+                raw_input(enemy.name + " was afflicted with " + status + "!")
 
         damage = damage_calc(spell, enemy.guild)
         enemy.hp -= damage
@@ -48,30 +68,61 @@ class NPC(object):
         self.max_hp = max_hp
         self.hp = self.max_hp
         self.guild = guild
+        self.color = self.guild
         self.spell_list = spell_list
         self.status = "None"
 
     def attack(self, player):
-        print self.name + " attacks!"
+        print(self.name + " attacks!")
         slot = randint(0, len(self.spell_list)-1)
         spell = self.spell_list[slot]
-        print self.name + " used " + spell + "..."
+        print(self.name + " used " + spell + "...")
         status = spellbook[spell][1]
         if status != "None":
-            player.status = status
-            raw_input("You are afflicted with " + status + "!")
+            if "Heal" in status:
+                amount = int(status.split(":")[1])
+                if amount == 0:
+                    self.hp = self.max_hp
+                    print("Their heath is back up to " + str(self.max_hp) + "HP!")
+                else:
+                    origin_hp = self.hp
+                    self.hp += amount
+                    if self.hp > self.max_hp:
+                        self.hp = self.max_hp
+                    print("They regained " + str(self.hp - origin_hp) + " HP!")
+            elif status == "Invisible":
+                print(self.name + " became invisible!")
+                self.guild = "Grey"
+                self.status = "Invisible"
+            else:
+                player.status = status
+                raw_input("You are afflicted with " + status + "!")
 
         damage = damage_calc(spell, player.guild)
         player.hp -= damage
-        print "They dealt " + str(damage) + " damage!\n"
+        print("They dealt " + str(damage) + " damage!\n")
+
+    def status_affect(self):
+        if self.status != "None":
+            if self.status == "Burn":
+                self.hp -= 1
+                print(self.name + " took 1 burn damage!")
+            elif self.status == "Radiated":
+                r = randint(0, 3)
+                self.hp -= r
+                print(self.name + " took " + r + " radiation damage!")                
+            elif self.status == "Frozen":
+                x = 0
+                print(self.name + " cant attack, they're frozen solid for " + str(x) + " more turns!")
 
 
-you = Player()
 elder_wizard = NPC("Elder Wizard", "Magenta", 1000000, ["Smite"])
+spacial_wizard = NPC("S̴p̵a̸c̶i̸a̴l̵ ̷W̸i̶z̸a̷r̷d̷", "Cyan", randint(0, 1999999), ["Bend", "Rift"])
 dummy = NPC("Training Dummy", "Grey", 10, ["Nothing"])
 rift_dummy = NPC("Rift Dummy", "Cyan", 10, ["Bend"])
 ellis = NPC("Ellis", "Yellow", 15, ["Magic Beam", "Zap"])
 
+# TODO: make status and effect different things. Status: Burn, Radiated. Effect: Heal, Raged. Idk: Frozen, Invisible
 spellbook = {
     "Freeze": [0, "Frozen", "Blue"],
     "Snowball": [3, "None", "Blue"],
@@ -85,8 +136,8 @@ spellbook = {
     "Lightning": [8, "None", "Yellow"],
     "Smite": [100000, "None", "Yellow"],
 
-    "Heal": [0, "Heal", "Green"],
-    "Full Regenerate": [0, "Full Heal", "Green"],
+    "Heal": [0, "Heal:9", "Green"],
+    "Full Regenerate": [0, "Heal:0", "Green"],
     "Raged Claws": [5, "None", "Green"],  # Status of rage? Cuts HP in half?
 
     "Nothing": [0, "None", "Grey"],
@@ -95,7 +146,10 @@ spellbook = {
     "Magic Laser": ["4-7", "None", "Grey"],
     "Invisibility": [0, "Invisible", "Grey"],
 
-    "Bend": [3, "None", "Cyan"]
+    "Radiate": [0, "Radiated", "Cyan"],
+    "Bend": [3, "None", "Cyan"],
+    "Warp": ["2-9", "None", "Cyan"],
+    "Rift": ["0-199999", "None", "Cyan"]
     }
 
 
@@ -131,7 +185,7 @@ def encounter(player, enemy):  # Take turns attacking as long as there is still 
             player.attack(enemy)
         else:
             raw_input("Your hp reached 0!")
-            print player.name + ", of the " + player.guild + " Guild, fell to " + enemy.name + "."
+            print(player.name + ", of the " + player.guild + " Guild, fell to " + enemy.name + ".")
             raw_input("You died with the spells " + str(player.spell_list) + " and " + str(player.max_hp) + " hp.")
             quit()
         if enemy.hp > 0:
@@ -148,7 +202,7 @@ def encounter(player, enemy):  # Take turns attacking as long as there is still 
 def begin():
     # speak(elder_wizard, "")
     raw_input("Welcome to Spell Quest, a text adventure! Press enter to progress, and make choices as you please.")
-    print
+    print()
     speak(elder_wizard, "Ah! Welcome adventurer! I am the Elder Wizard, and this is the Guild of Wizards!")
     speak(elder_wizard, "Now you may have heard stories about us, both good and bad...")
     speak(elder_wizard, "And I can assure you, they are all true!")
@@ -181,7 +235,7 @@ def begin():
     speak(elder_wizard, "Good luck on your way, young wizard!!!")
 
 
-def first_encounter():
+def dummy_fight():
     raw_input("There appears to be a training dummy in the courtyard. You should practice there.")
     encounter(you, dummy)
     raw_input("Huh? Something is happening!!!")
@@ -195,10 +249,10 @@ def first_encounter():
 
 
 if __name__ == '__main__':
+    you = Player("Ally", "Magenta", 1000000, ["Smite", "Rift"])
     # begin()
-    you.max_hp = 13
-    you.spell_list = ["Magic Beam"]
-    first_encounter()
+    # dummy_fight()
+    encounter(you, spacial_wizard)
     print("The story will continue soon! Thanks for playing!")
 
 """ 
